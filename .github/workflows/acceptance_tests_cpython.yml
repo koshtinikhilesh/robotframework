@@ -70,3 +70,21 @@ jobs:
           name: at-results-${{ matrix.python-version }}-${{ matrix.os }}
           path: atest/results
         if: always() && job.status == 'failure'
+
+      - name: Upload results
+        run: lftp ftp://ftpupload.net:21 -u ${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }} -e "set ftp:ssl-allow no; mirror -R atest/results htdocs/${{ github.sha }}/at-results-jython-${{ matrix.jython-version }}-${{ matrix.os }}-java${{ matrix.java }}; quit"
+        if: always() && job.status == 'failure'
+
+      - uses: octokit/request-action@57ec46afcc4c58c813af3afe67e57ced1ea9f165
+        id: update_status
+        with:
+          route: POST /repos/:repository/statuses/:sha
+          repository: ${{ github.repository }}
+          sha: ${{ github.sha }}
+          state: "failure"
+          target_url: "http://rf-test-reports.epizy.com/test.php?commit_sha=${{ github.sha }}"
+          description: "Test run failed, see report for more information"
+          context: "ci/gh-actions"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        if: always() && job.status == 'failure'
